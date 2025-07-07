@@ -11,6 +11,7 @@ import { Log } from './lib/log';
 // import { Server } from 'socket.io';
 import { TelegramEngine } from './engine/telegram';
 import { getDateTime } from './lib/date_time';
+import { fetchCSData } from './model/pair';
 
 const app = express();
 const server = http.createServer(app);
@@ -93,12 +94,13 @@ process.on('unhandledRejection', async (err, promise) => {
 Log.flow([Site.TITLE, 'Attempting to start engines.'], 0);
 startEngine().then(r => {
     if (r) {
-        server.listen(Site.PORT, () => {
+        server.listen(Site.PORT, async () => {
             Log.flow([Site.TITLE, 'Sucessfully started all engines.'], 0);
             Log.flow([Site.TITLE, `Running at http://127.0.0.1:${Site.PORT}`], 0);
             if (Site.PRODUCTION) {
                 TelegramEngine.sendMessage(`😊 ${Site.TITLE} has worken up at ${getDateTime()}`);
             }
+            // console.log((await fetchCSData("EURUSD=X")).message.candlestick);
         });
     }
     else {

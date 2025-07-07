@@ -27,7 +27,7 @@ export class TelegramEngine {
 
     private static startMessage = () => {
         let m: string = `👋 ${Site.TITLE} been awake since ${getDateTime(starting)}`;
-        m += `\n\n👉 Send a message conatining a bunch of valid pairs to add them to pairs e.g. \`GBPUSD+X JPYUSD+X\``;
+        m += `\n\n👉 Send a message conatining a bunch of valid pairs to add them to pairs e.g. \`GBPUSD=X JPYEUR=X\``;
         return m;
     }
 

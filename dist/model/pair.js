@@ -1,0 +1,112 @@
+"use strict";
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.Pair = exports.fetchCSData = void 0;
+const axios_1 = __importDefault(require("axios"));
+const date_time_1 = require("../lib/date_time");
+const log_1 = require("../lib/log");
+const site_1 = require("../site");
+const res_1 = require("../lib/res");
+const core_1 = require("groq-sdk/core");
+let LAST_FETCHED_ALL = 0;
+const fetchCSData = (symbol, isNew = true) => new Promise((resolve, reject) => __awaiter(void 0, void 0, void 0, function* () {
+    let elapsed = Date.now() - LAST_FETCHED_ALL;
+    if (elapsed <= 1000) {
+        yield (0, core_1.sleep)(1000 - elapsed);
+    }
+    const interval = (0, date_time_1.getTimeElapsed)(0, site_1.Site.PE_INTERVAL_MS).split(" ")[0];
+    const range = (0, date_time_1.getTimeElapsed)(0, Math.max(1200000, (isNew ? (site_1.Site.PE_INTERVAL_MS * site_1.Site.PE_MAX_RECORDS) : site_1.Site.PE_INTERVAL_MS) * 2)).split(" ")[0];
+    axios_1.default.get(`${site_1.Site.PE_SOURCE_URL}/${symbol}?interval=${interval}&range=${range}`, {
+        timeout: site_1.Site.PE_DATA_TIMEOUT_MS,
+    }).then(r => {
+        LAST_FETCHED_ALL = Date.now();
+        if (r.status == 200 && r.data && r.data.chart && r.data.chart.result && Array.isArray(r.data.chart.result) && r.data.chart.result.length > 0) {
+            const res = r.data.chart.result[0];
+            let rowsRemaining = isNew ? site_1.Site.PE_MAX_RECORDS : 1;
+            let currentID = (res.timestamp || []).length - 1;
+            let data = [];
+            const src = (res.indicators.quote[0] || []);
+            while (rowsRemaining && currentID >= 0) {
+                const ts = (res.timestamp[currentID] || 0) * 1000;
+                const open = (src.open || [])[currentID] || 0;
+                const high = (src.high || [])[currentID] || 0;
+                const low = (src.low || [])[currentID] || 0;
+                const close = (src.close || [])[currentID] || 0;
+                const volume = (src.volume || [])[currentID] || 0;
+                if (ts && open && high && low && close) {
+                    data.unshift({
+                        open, high, low, close, volume, ts,
+                    });
+                    rowsRemaining--;
+                }
+                currentID--;
+            }
+            const rr = {
+                candlestick: data,
+                fiftyTwoWeekHigh: res.meta.fiftyTwoWeekHigh,
+                fiftyTwoWeekLow: res.meta.fiftyTwoWeekLow,
+                fullExchangeName: res.meta.fullExchangeName,
+                regularMarketDayHigh: res.meta.regularMarketDayHigh,
+                regularMarketDayLow: res.meta.regularMarketDayLow,
+                regularMarketPrice: res.meta.regularMarketPrice,
+                regularMarketVolume: res.meta.regularMarketVolume,
+            };
+            if (data.length > 0) {
+                resolve(res_1.GRes.succ(rr));
+            }
+            else {
+                resolve(res_1.GRes.err("No data."));
+            }
+        }
+        else {
+            resolve(res_1.GRes.err("Unknown response."));
+        }
+    }).catch(err => {
+        LAST_FETCHED_ALL = Date.now();
+        resolve(res_1.GRes.err(err.message || err.response.data.chart.error || "Connection error."));
+    });
+}));
+exports.fetchCSData = fetchCSData;
+class Pair {
+    getMarkPrice() {
+        if (this.candlestickData.length <= 0) {
+            return 0;
+        }
+        return this.candlestickData[this.candlestickData.length - 1].close;
+    }
+    fetchCandlestickData() {
+        this.lastFetched = Date.now();
+        const conclude = () => {
+            const now = Date.now();
+            const scheduledTS = this.lastFetched + site_1.Site.PE_INTERVAL_MS;
+            if (now >= scheduledTS) {
+                this.fetchCandlestickData();
+            }
+            else {
+                const timeToSchedule = scheduledTS - now;
+                log_1.Log.flow([this.symbol, "Candlestick", `Next iteration in ${(0, date_time_1.getTimeElapsed)(now, scheduledTS)}.`], 5);
+                if (this.dataTimeoutObject) {
+                    clearTimeout(this.dataTimeoutObject);
+                }
+                this.dataTimeoutObject = setTimeout(() => {
+                    this.fetchCandlestickData();
+                }, timeToSchedule);
+            }
+        };
+        log_1.Log.flow([this.symbol, "Candlestick", `Initialized.`], 5);
+        axios_1.default;
+    }
+    constructor() { }
+}
+exports.Pair = Pair;

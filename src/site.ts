@@ -16,6 +16,11 @@ export class Site {
     static URL = Site.PRODUCTION ? (process.env["PROD_URL"] || "") : `http://localhost:${Site.PORT}`;
     static MAX_ALLOWED_FLOG_LOG_WEIGHT: number = parseInt(process.env["MAX_ALLOWED_FLOG_LOG_WEIGHT"] || "0") || 5;
 
+    static PE_INTERVAL_MS: number = parseInt(process.env["PE_INTERVAL_MS"] || "0") || 60000;
+    static PE_MAX_RECORDS: number = parseInt(process.env["PE_MAX_RECORDS"] || "0") || 100;
+    static PE_DATA_TIMEOUT_MS: number = parseInt(process.env["PE_DATA_TIMEOUT_MS"] || "0") || 120000;
+    static PE_SOURCE_URL: string = process.env["PE_SOURCE_URL"] || "https://query1.finance.yahoo.com/v8/finance/chart";
+
     static TG_TOKEN: string = process.env["TG_TOKEN"] ?? "";
     static TG_CHAT_ID: number = parseInt(process.env["TG_CHAT_ID"] ?? "0") || 0;
     static TG_POLLING: boolean = (process.env["TG_POLLING"] || "").toLowerCase() == "true";
