@@ -6,6 +6,7 @@ import { Candlestick } from "./candlestick";
 import { GRes, Res } from "../lib/res";
 import { sleep } from "groq-sdk/core";
 import { APIResponse, FetchResponse } from "./api_response";
+import { AnalysisEngine } from "../engine/analysis";
 
 let LAST_FETCHED_ALL = 0;
 
@@ -69,7 +70,14 @@ export const fetchCSData = (symbol: string, isNew: boolean = true) => new Promis
 
 export class Pair {
     symbol!: string;
-    dataTimeoutObject?: NodeJS.Timeout;
+    fullExchangeName!: string;
+    regularMarketPrice!: number;
+    fiftyTwoWeekHigh!: number;
+    fiftyTwoWeekLow!: number;
+    regularMarketDayHigh!: number;
+    regularMarketDayLow!: number;
+    regularMarketVolume!: number;
+    dataTimeoutObject?: NodeJS.Timeout | null;
     candlestickData!: Candlestick[];
     lastFetched!: number;
 
@@ -80,7 +88,7 @@ export class Pair {
         return this.candlestickData[this.candlestickData.length - 1].close;
     }
 
-    fetchCandlestickData() {
+    async fetchCandlestickData() {
         this.lastFetched = Date.now();
         const conclude = () => {
             const now = Date.now();
@@ -100,8 +108,56 @@ export class Pair {
             }
         }
         Log.flow([this.symbol, "Candlestick", `Initialized.`], 5);
-        axios
+        const data = await fetchCSData(this.symbol, this.candlestickData.length == 0);
+        if (data.succ) {
+            const d: FetchResponse = data.message;
+            this.candlestickData = this.candlestickData.concat(d.candlestick);
+            this.fiftyTwoWeekHigh = d.fiftyTwoWeekHigh;
+            this.fiftyTwoWeekLow = d.fiftyTwoWeekLow;
+            this.fullExchangeName = d.fullExchangeName;
+            this.regularMarketDayHigh = d.regularMarketDayHigh;
+            this.regularMarketDayLow = d.regularMarketDayLow;
+            this.regularMarketPrice = d.regularMarketPrice;
+            this.regularMarketVolume = d.regularMarketVolume;
+            if (this.candlestickData.length > Site.PE_MAX_RECORDS) {
+                this.candlestickData = this.candlestickData.slice(this.candlestickData.length - Site.PE_MAX_RECORDS);
+            }
+            const l = d.candlestick.length;
+            Log.flow([this.symbol, "Candlestick", `Fetched  ${l} row${l == 1 ? '' : 's'}.`], 5);
+            const sig = await AnalysisEngine.run(this.symbol, this.candlestickData);
+            if(sig){
+                // TODO: Attach broadcast engine here
+            }
+            conclude();
+        }
+        else {
+            Log.flow([this.symbol, "Candlestick", `Error`, data.message], 5);
+            this.candlestickData = [];
+            conclude();
+        }
     }
 
-    constructor() { }
+    destroy() {
+        return new Promise((resolve, reject) => {
+            if (this.dataTimeoutObject) {
+                clearTimeout(this.dataTimeoutObject);
+            }
+            resolve(true);
+        });
+    }
+
+    constructor(symbol: string) {
+        this.symbol = symbol;
+        this.candlestickData = [];
+        this.dataTimeoutObject = null;
+        this.fiftyTwoWeekHigh = 0;
+        this.fiftyTwoWeekLow = 0;
+        this.fullExchangeName = "";
+        this.lastFetched = 0;
+        this.regularMarketDayHigh = 0;
+        this.regularMarketDayLow = 0;
+        this.regularMarketPrice = 0;
+        this.regularMarketVolume = 0;
+        this.fetchCandlestickData();
+    }
 }

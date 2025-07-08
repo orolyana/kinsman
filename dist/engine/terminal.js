@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.stopEngine = exports.startEngine = void 0;
 const date_time_1 = require("../lib/date_time");
 const site_1 = require("../site");
+const analysis_1 = require("./analysis");
 const pair_1 = require("./pair");
 const telegram_1 = require("./telegram");
 const startEngine = () => new Promise((resolve, reject) => __awaiter(void 0, void 0, void 0, function* () {
@@ -21,8 +22,11 @@ const startEngine = () => new Promise((resolve, reject) => __awaiter(void 0, voi
 exports.startEngine = startEngine;
 const stopEngine = () => new Promise((resolve, reject) => __awaiter(void 0, void 0, void 0, function* () {
     const conclude = () => __awaiter(void 0, void 0, void 0, function* () {
-        const ended = (yield pair_1.PairEngine.stop());
-        resolve(ended);
+        const ended = yield Promise.all([
+            pair_1.PairEngine.stop(),
+            analysis_1.AnalysisEngine.stop(),
+        ]);
+        resolve(ended.every(v => v === true));
     });
     if (site_1.Site.PRODUCTION) {
         telegram_1.TelegramEngine.sendMessage(`😴 ${site_1.Site.TITLE} is going back to sleep at ${(0, date_time_1.getDateTime)()}`, (mid) => __awaiter(void 0, void 0, void 0, function* () {

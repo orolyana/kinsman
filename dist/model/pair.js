@@ -19,6 +19,7 @@ const log_1 = require("../lib/log");
 const site_1 = require("../site");
 const res_1 = require("../lib/res");
 const core_1 = require("groq-sdk/core");
+const analysis_1 = require("../engine/analysis");
 let LAST_FETCHED_ALL = 0;
 const fetchCSData = (symbol, isNew = true) => new Promise((resolve, reject) => __awaiter(void 0, void 0, void 0, function* () {
     let elapsed = Date.now() - LAST_FETCHED_ALL;
@@ -86,27 +87,76 @@ class Pair {
         return this.candlestickData[this.candlestickData.length - 1].close;
     }
     fetchCandlestickData() {
-        this.lastFetched = Date.now();
-        const conclude = () => {
-            const now = Date.now();
-            const scheduledTS = this.lastFetched + site_1.Site.PE_INTERVAL_MS;
-            if (now >= scheduledTS) {
-                this.fetchCandlestickData();
+        return __awaiter(this, void 0, void 0, function* () {
+            this.lastFetched = Date.now();
+            const conclude = () => {
+                const now = Date.now();
+                const scheduledTS = this.lastFetched + site_1.Site.PE_INTERVAL_MS;
+                if (now >= scheduledTS) {
+                    this.fetchCandlestickData();
+                }
+                else {
+                    const timeToSchedule = scheduledTS - now;
+                    log_1.Log.flow([this.symbol, "Candlestick", `Next iteration in ${(0, date_time_1.getTimeElapsed)(now, scheduledTS)}.`], 5);
+                    if (this.dataTimeoutObject) {
+                        clearTimeout(this.dataTimeoutObject);
+                    }
+                    this.dataTimeoutObject = setTimeout(() => {
+                        this.fetchCandlestickData();
+                    }, timeToSchedule);
+                }
+            };
+            log_1.Log.flow([this.symbol, "Candlestick", `Initialized.`], 5);
+            const data = yield (0, exports.fetchCSData)(this.symbol, this.candlestickData.length == 0);
+            if (data.succ) {
+                const d = data.message;
+                this.candlestickData = this.candlestickData.concat(d.candlestick);
+                this.fiftyTwoWeekHigh = d.fiftyTwoWeekHigh;
+                this.fiftyTwoWeekLow = d.fiftyTwoWeekLow;
+                this.fullExchangeName = d.fullExchangeName;
+                this.regularMarketDayHigh = d.regularMarketDayHigh;
+                this.regularMarketDayLow = d.regularMarketDayLow;
+                this.regularMarketPrice = d.regularMarketPrice;
+                this.regularMarketVolume = d.regularMarketVolume;
+                if (this.candlestickData.length > site_1.Site.PE_MAX_RECORDS) {
+                    this.candlestickData = this.candlestickData.slice(this.candlestickData.length - site_1.Site.PE_MAX_RECORDS);
+                }
+                const l = d.candlestick.length;
+                log_1.Log.flow([this.symbol, "Candlestick", `Fetched  ${l} row${l == 1 ? '' : 's'}.`], 5);
+                const sig = yield analysis_1.AnalysisEngine.run(this.symbol, this.candlestickData);
+                if (sig) {
+                    // TODO: Attach broadcast engine here
+                }
+                conclude();
             }
             else {
-                const timeToSchedule = scheduledTS - now;
-                log_1.Log.flow([this.symbol, "Candlestick", `Next iteration in ${(0, date_time_1.getTimeElapsed)(now, scheduledTS)}.`], 5);
-                if (this.dataTimeoutObject) {
-                    clearTimeout(this.dataTimeoutObject);
-                }
-                this.dataTimeoutObject = setTimeout(() => {
-                    this.fetchCandlestickData();
-                }, timeToSchedule);
+                log_1.Log.flow([this.symbol, "Candlestick", `Error`, data.message], 5);
+                this.candlestickData = [];
+                conclude();
             }
-        };
-        log_1.Log.flow([this.symbol, "Candlestick", `Initialized.`], 5);
-        axios_1.default;
+        });
     }
-    constructor() { }
+    destroy() {
+        return new Promise((resolve, reject) => {
+            if (this.dataTimeoutObject) {
+                clearTimeout(this.dataTimeoutObject);
+            }
+            resolve(true);
+        });
+    }
+    constructor(symbol) {
+        this.symbol = symbol;
+        this.candlestickData = [];
+        this.dataTimeoutObject = null;
+        this.fiftyTwoWeekHigh = 0;
+        this.fiftyTwoWeekLow = 0;
+        this.fullExchangeName = "";
+        this.lastFetched = 0;
+        this.regularMarketDayHigh = 0;
+        this.regularMarketDayLow = 0;
+        this.regularMarketPrice = 0;
+        this.regularMarketVolume = 0;
+        this.fetchCandlestickData();
+    }
 }
 exports.Pair = Pair;

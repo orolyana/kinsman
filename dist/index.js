@@ -25,7 +25,6 @@ const log_1 = require("./lib/log");
 // import { Server } from 'socket.io';
 const telegram_1 = require("./engine/telegram");
 const date_time_1 = require("./lib/date_time");
-const pair_1 = require("./model/pair");
 const app = (0, express_1.default)();
 const server = http_1.default.createServer(app);
 // const io = new Server(server, {
@@ -99,7 +98,7 @@ log_1.Log.flow([site_1.Site.TITLE, 'Attempting to start engines.'], 0);
             if (site_1.Site.PRODUCTION) {
                 telegram_1.TelegramEngine.sendMessage(`😊 ${site_1.Site.TITLE} has worken up at ${(0, date_time_1.getDateTime)()}`);
             }
-            console.log((yield (0, pair_1.fetchCSData)("EURUSD=X")).message.candlestick);
+            // console.log((await fetchCSData("EURUSD=X")).message.candlestick);
         }));
     }
     else {
