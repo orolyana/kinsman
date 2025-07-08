@@ -87,6 +87,7 @@ export class AnalysisEngine {
                         `Ticker: ${symbol}`,
                         `Data: ${data.length}x${getTimeElapsed(0, Site.PE_INTERVAL_MS).split(" ")[0]} (${getDateTime2(Date.now() - (Site.PE_INTERVAL_MS * data.length))} → ${getDateTime2(Date.now())})`,
                         `Price: ${latestRate}`,
+                        `Time now: ${getDateTime2()}`,
                     ], // INPUT DATA
                     [], // STEP 1
                     [], // STEP 2

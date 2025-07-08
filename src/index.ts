@@ -11,7 +11,6 @@ import { Log } from './lib/log';
 // import { Server } from 'socket.io';
 import { TelegramEngine } from './engine/telegram';
 import { getDateTime } from './lib/date_time';
-import { fetchCSData } from './model/pair';
 
 const app = express();
 const server = http.createServer(app);
@@ -33,7 +32,7 @@ app.use(
     })
 );
 
-app.get("/", (req, res) => {
+app.get("/", async (req, res) => {
     res.send(`${Site.TITLE} is on.`);
 })
 

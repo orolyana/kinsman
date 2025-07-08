@@ -54,6 +54,7 @@ AnalysisEngine.run = (symbol, data) => {
                     `Ticker: ${symbol}`,
                     `Data: ${data.length}x${(0, date_time_1.getTimeElapsed)(0, site_1.Site.PE_INTERVAL_MS).split(" ")[0]} (${(0, date_time_1.getDateTime2)(Date.now() - (site_1.Site.PE_INTERVAL_MS * data.length))} → ${(0, date_time_1.getDateTime2)(Date.now())})`,
                     `Price: ${latestRate}`,
+                    `Time now: ${(0, date_time_1.getDateTime2)()}`,
                 ], // INPUT DATA
                 [], // STEP 1
                 [], // STEP 2

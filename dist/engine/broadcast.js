@@ -50,6 +50,7 @@ const log_1 = require("../lib/log");
 const occurence_1 = require("../model/occurence");
 const site_1 = require("../site");
 const groq_1 = require("./groq");
+const gdelt_1 = require("./gdelt");
 let cachedTelegramEngine = null;
 const TelegramEngine = () => __awaiter(void 0, void 0, void 0, function* () {
     if (!cachedTelegramEngine) {
@@ -85,7 +86,7 @@ BroadcastEngine.getDominantSignal = () => {
 };
 BroadcastEngine.aiHistory = {};
 BroadcastEngine.computePrompt = (symbol, signal, occurence) => {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve, reject) => __awaiter(void 0, void 0, void 0, function* () {
         if (!_a.aiHistory[symbol]) {
             _a.aiHistory[symbol] = [];
         }
@@ -154,6 +155,21 @@ BroadcastEngine.computePrompt = (symbol, signal, occurence) => {
             }
         }
         prompt[1].content += `\n\nSignal: **${signal.long ? "LONG" : "SHORT"}** ${occurence > 1 ? `(Occurred ${occurence}x consecutively)` : ''}`;
+        const base = symbol.slice(0, 3);
+        const quote = symbol.slice(3, 6);
+        const [baseH, quoteH] = yield Promise.all([
+            gdelt_1.GDELTEngine.fetch(base),
+            gdelt_1.GDELTEngine.fetch(quote),
+        ]);
+        if (baseH.length > 0 || quoteH.length > 0) {
+            prompt[1].content += `\n\nRecent News Headlines (last 24h):\n`;
+            if (baseH.length > 0) {
+                prompt[1].content += `\n[${base}]\n` + baseH.map(h => `- [${h.date}] ${h.title}`).join("\n");
+            }
+            if (quoteH.length > 0) {
+                prompt[1].content += `${prompt[1].content.endsWith("\n") ? "" : "\n"}\n[${quote}]\n` + quoteH.map(h => `- [${h.date}] ${h.title}`).join("\n");
+            }
+        }
         prompt[1].content += `\n\n## TASK\nReturn a JSON object only with:\n- supported: true/false\n- reason: short paragraph\n- confidence: 0–100`;
         prompt[0].content = prompt[0].content.replace(/ {2,}/g, " ");
         prompt[1].content = prompt[1].content.replace(/ {2,}/g, " ");
@@ -190,7 +206,7 @@ BroadcastEngine.computePrompt = (symbol, signal, occurence) => {
                 }
             },
         });
-    });
+    }));
 };
 BroadcastEngine.entry = (symbol, signal) => __awaiter(void 0, void 0, void 0, function* () {
     let TE = yield TelegramEngine();

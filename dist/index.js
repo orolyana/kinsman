@@ -40,9 +40,9 @@ app.use(body_parser_1.default.urlencoded({
     limit: "35mb",
     parameterLimit: 50000,
 }));
-app.get("/", (req, res) => {
+app.get("/", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     res.send(`${site_1.Site.TITLE} is on.`);
-});
+}));
 app.post("/webhook", (req, res) => {
     const receivedToken = req.headers["x-telegram-bot-api-secret-token"];
     if (receivedToken != site_1.Site.TG_WH_SECRET_TOKEN) {
