@@ -15,6 +15,14 @@ const TelegramEngine = async () => {
     return cachedTelegramEngine;
 }
 
+let cachedPairEngine: typeof import('./pair').PairEngine | null = null;
+const PairEngine = async () => {
+    if (!cachedPairEngine) {
+        cachedPairEngine = ((await import('./pair'))).PairEngine;
+    }
+    return cachedPairEngine;
+}
+
 export class BroadcastEngine {
     private static occurrences: Record<string, Occurrence> = {};
 
@@ -186,7 +194,16 @@ export class BroadcastEngine {
         m += `ATR Limit Price 🏷️ ${FFF(volPrice, 6)}\n`;
         m += `Stop Loss Price 🏷️ ${FFF(signal.tpsl, 6)}\n`;
         m += `Volatility 📈 ${FFF(signal.volatilityPerc)}%\n`;
-        m += `Occurrence 🔄 ${formatNumber(occurence)}`;
+        m += `Occurrence 🔄 ${formatNumber(occurence)}\n`;
+        const pair = (await PairEngine()).getPair(symbol);
+        if (pair) {
+            if (pair.fiftyTwoWeekHigh && pair.fiftyTwoWeekLow) {
+                m += `52 Week ⬆️ ${FFF(pair.fiftyTwoWeekHigh, 6)} ⬇️ ${FFF(pair.fiftyTwoWeekLow, 6)}\n`;
+            }
+            if (pair.regularMarketDayHigh && pair.regularMarketDayLow && pair.regularMarketPrice) {
+                m += `Regulars ⏺️ Day ⬆️ ${FFF(pair.regularMarketDayHigh, 6)} | Day ⬇️ ${FFF(pair.regularMarketDayLow, 6)} | 🏷️ ${FFF(pair.regularMarketPrice, 6)} | 📦 ${FFF(pair.regularMarketVolume, 6)}\n`;
+            }
+        }
 
         const verdict = await BroadcastEngine.computePrompt(symbol, signal, occurence);
 
@@ -201,7 +218,7 @@ export class BroadcastEngine {
                     callback_data: `price_${symbol}`,
                 }
             ],
-            
+
         ];
 
         (await TelegramEngine()).sendMessage(m, mid => {

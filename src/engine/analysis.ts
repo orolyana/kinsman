@@ -55,9 +55,7 @@ export class AnalysisEngine {
     }
 
     static stop = () => new Promise<boolean>((resolve, reject) => {
-        return new Promise<boolean>((resolve, reject) => {
-            resolve(true);
-        })
+        resolve(true);
     })
 
     private static getParamsForInd = (ind: string) => {

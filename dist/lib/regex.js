@@ -5,3 +5,4 @@ class RegexPatterns {
 }
 exports.RegexPatterns = RegexPatterns;
 RegexPatterns.pair = /^[A-Z]{6}=X$/;
+RegexPatterns.pairWithin = /[A-Z]{6}=X/;

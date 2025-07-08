@@ -13,6 +13,7 @@ exports.stopEngine = exports.startEngine = void 0;
 const date_time_1 = require("../lib/date_time");
 const site_1 = require("../site");
 const analysis_1 = require("./analysis");
+const groq_1 = require("./groq");
 const pair_1 = require("./pair");
 const telegram_1 = require("./telegram");
 const startEngine = () => new Promise((resolve, reject) => __awaiter(void 0, void 0, void 0, function* () {
@@ -25,6 +26,7 @@ const stopEngine = () => new Promise((resolve, reject) => __awaiter(void 0, void
         const ended = yield Promise.all([
             pair_1.PairEngine.stop(),
             analysis_1.AnalysisEngine.stop(),
+            groq_1.GroqEngine.shutdown(),
         ]);
         resolve(ended.every(v => v === true));
     });

@@ -52,7 +52,7 @@ export class PairEngine {
     });
 
     static deletePair = (symbol: string) => {
-        return new Promise(async (resolve, reject) => {
+        return new Promise<boolean>(async (resolve, reject) => {
             if (PairEngine.pairs[symbol]) {
                 Log.flow([PairEngine.slug, "Delete", `${symbol}.`], 2);
                 const destroyed = await PairEngine.pairs[symbol].destroy();

@@ -26,9 +26,7 @@ AnalysisEngine.removePair = (symbol) => {
     delete AnalysisEngine.isEntryBull[symbol];
 };
 AnalysisEngine.stop = () => new Promise((resolve, reject) => {
-    return new Promise((resolve, reject) => {
-        resolve(true);
-    });
+    resolve(true);
 });
 AnalysisEngine.getParamsForInd = (ind) => {
     const p = Object.keys(site_1.Site.IN_CFG).filter(x => x.startsWith(ind));
@@ -706,7 +704,6 @@ AnalysisEngine.run = (symbol, data) => {
             }
             stoploss = step6();
             const signal = new signal_1.Signal(short, long, desc, cache.ATR, stoploss, latestRate, userPrompt);
-            console.log(userPrompt);
             cache = Object.fromEntries(Object.entries(cache).filter(([__dirname, v]) => v !== null));
             // CONCLUDE ANALYSIS
             log_1.Log.flow([AnalysisEngine.slug, symbol, "Success", `Long: ${signal.long ? "Yes" : "No"} | Short: ${signal.short ? "Yes" : "No"} | Price: ${(0, format_number_1.FFF)(latestRate)}${stoploss ? ` | Stoploss: ${(0, format_number_1.FFF)(stoploss)}` : ""}.`], 5);

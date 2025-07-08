@@ -18,6 +18,9 @@ const node_telegram_bot_api_1 = __importDefault(require("node-telegram-bot-api")
 const site_1 = require("../site");
 const log_1 = require("../lib/log");
 const date_time_1 = require("../lib/date_time");
+const format_number_1 = require("../lib/format_number");
+const pair_1 = require("./pair");
+const regex_1 = require("../lib/regex");
 process.env["NTBA_FIX_350"] = 'true';
 const starting = Date.now();
 class TelegramEngine {
@@ -38,6 +41,43 @@ TelegramEngine.startMessage = () => {
     let m = `👋 ${site_1.Site.TITLE} been awake since ${(0, date_time_1.getDateTime)(starting)}`;
     m += `\n\n👉 Send a message conatining a bunch of valid pairs to add them to pairs e.g. \`GBPUSD=X JPYEUR=X\``;
     return m;
+};
+TelegramEngine.pairsMessage = () => {
+    let message = `💱 *Pairs* - ${(0, date_time_1.getDateTime)()}\n`;
+    let inline = [
+        [
+            {
+                text: '♻️ Refresh',
+                callback_data: 'refreshpairs',
+            }
+        ]
+    ];
+    const pairs = pair_1.PairEngine.getAllPairs();
+    let sn = 1;
+    for (const pair of pairs) {
+        message += `\n💲 ${sn}. ${pair.symbol}\n`;
+        if (pair.candlestickData.length > 0) {
+            message += `Mark Price 🏷️ ${(0, format_number_1.FFF)(pair.getMarkPrice(), 6)}\n`;
+        }
+        if (pair.fiftyTwoWeekHigh && pair.fiftyTwoWeekLow) {
+            message += `52 Week ⬆️ ${(0, format_number_1.FFF)(pair.fiftyTwoWeekHigh, 6)} ⬇️ ${(0, format_number_1.FFF)(pair.fiftyTwoWeekLow, 6)}\n`;
+        }
+        if (pair.regularMarketDayHigh && pair.regularMarketDayLow && pair.regularMarketPrice) {
+            message += `Regulars ⏺️ Day ⬆️ ${(0, format_number_1.FFF)(pair.regularMarketDayHigh, 6)} | Day ⬇️ ${(0, format_number_1.FFF)(pair.regularMarketDayLow, 6)} | 🏷️ ${(0, format_number_1.FFF)(pair.regularMarketPrice, 6)} | 📦 ${(0, format_number_1.FFF)(pair.regularMarketVolume, 6)}\n`;
+        }
+        inline.push([
+            {
+                text: `🗑 ${sn}`,
+                callback_data: `delete_${pair.symbol}`,
+            },
+            {
+                text: `🏷️ ${sn}`,
+                callback_data: `price_${pair.symbol}`,
+            },
+        ]);
+        sn++;
+    }
+    return { message: pairs.length ? message : `${message}\n❌ No pairs available`, inline };
 };
 TelegramEngine.start = () => {
     return new Promise((resolve, reject) => {
@@ -74,22 +114,36 @@ TelegramEngine.start = () => {
                 if (/^\/start$/.test(content)) {
                     _a.sendMessage(_a.startMessage());
                 }
-                else if (noteRegex.test(content)) {
-                    // const match = content.match(noteRegex);
-                    // if (match) {
-                    //     const title = match[1];
-                    //     const body = match[2];
-                    //     const sent = await NotificationEngine.sendToAllUsers({
-                    //         title,
-                    //         body,
-                    //     });
-                    //     if (sent) {
-                    //         TelegramEngine.sendMessage(`✅ Notification sent to ${formatNumber(sent)} user${sent != 1 ? 's' : ''}`);
-                    //     }
-                    //     else {
-                    //         TelegramEngine.sendMessage(`😔 Sorry! Notifiction could not be sent`);
-                    //     }
-                    // }
+                else if (/^\/pairs$/.test(content)) {
+                    const { inline, message } = _a.pairsMessage();
+                    _a.sendMessage(message, mid => { }, {
+                        disable_web_page_preview: true,
+                        parse_mode: 'MarkdownV2',
+                        reply_markup: {
+                            inline_keyboard: inline,
+                        }
+                    });
+                }
+                else if (regex_1.RegexPatterns.pairWithin.test(content)) {
+                    const symbols = content.split(" ").filter(x => regex_1.RegexPatterns.pair.test(x));
+                    let a = 0;
+                    let b = 0;
+                    for (let i = 0; i < symbols.length; i++) {
+                        const symbol = symbols[i];
+                        const done = yield pair_1.PairEngine.addPair(symbol);
+                        if (done) {
+                            a++;
+                        }
+                        else {
+                            b++;
+                        }
+                    }
+                    if (a > 0) {
+                        _a.sendMessage(`✅ ${a} pair${a == 1 ? "" : "s"} added`);
+                    }
+                    if (b > 0) {
+                        _a.sendMessage(`❌ Could not add ${b} pair${b == 1 ? "" : "s"}`);
+                    }
                 }
                 else {
                     _a.sendMessage(`😔 Sorry! ${site_1.Site.TITLE} could not understand your message\n\n` + _a.startMessage());
@@ -97,26 +151,22 @@ TelegramEngine.start = () => {
             }
         }));
         _a.bot.on("callback_query", (callbackQuery) => __awaiter(void 0, void 0, void 0, function* () {
-            var _b, _c, _d;
+            var _b, _c, _d, _e, _f;
             const pid = ((_b = callbackQuery.message) === null || _b === void 0 ? void 0 : _b.chat.id) || ((_d = (_c = callbackQuery.message) === null || _c === void 0 ? void 0 : _c.from) === null || _d === void 0 ? void 0 : _d.id);
             if (pid && pid == site_1.Site.TG_CHAT_ID) {
-                if (callbackQuery.data == "refreshstats") {
+                if (callbackQuery.data == "refreshpairs") {
                     try {
                         _a.bot.answerCallbackQuery(callbackQuery.id);
-                        // if (message != TelegramEngine.#lastStatContent) {
-                        //     const done = await TelegramEngine.#bot.editMessageText(TelegramEngine.sanitizeMessage(message), {
-                        //         chat_id: Site.TG_CHAT_ID,
-                        //         message_id: callbackQuery.message.message_id,
-                        //         parse_mode: "MarkdownV2",
-                        //         disable_web_page_preview: true,
-                        //         reply_markup: {
-                        //             inline_keyboard: inline
-                        //         }
-                        //     });
-                        //     if (done) {
-                        //         TelegramEngine.#lastStatContent = message;
-                        //     }
-                        // }
+                        const { message, inline } = _a.pairsMessage();
+                        const done = yield _a.bot.editMessageText(_a.sanitizeMessage(message), {
+                            chat_id: site_1.Site.TG_CHAT_ID,
+                            message_id: (_e = callbackQuery === null || callbackQuery === void 0 ? void 0 : callbackQuery.message) === null || _e === void 0 ? void 0 : _e.message_id,
+                            parse_mode: "MarkdownV2",
+                            disable_web_page_preview: true,
+                            reply_markup: {
+                                inline_keyboard: inline
+                            }
+                        });
                     }
                     catch (error) {
                         log_1.Log.dev(error);
@@ -125,28 +175,37 @@ TelegramEngine.start = () => {
                 else {
                     let content = callbackQuery.data || "";
                     content = content.replace(/\-/g, ".").trim().replace(/_/g, " ").trim();
-                    if (content.startsWith("trader ")) {
-                        let temp1 = content.split(" ");
-                        let newStatus = temp1[1] == "true";
-                        // const newv = Trader.toggle();
-                        // try {
-                        //     TelegramEngine.#bot.answerCallbackQuery(callbackQuery.id);
-                        //     const { message, inline } = TelegramEngine.#getStatsContent();
-                        //     const done = await TelegramEngine.#bot.editMessageText(TelegramEngine.sanitizeMessage(message), {
-                        //         chat_id: Site.TG_CHAT_ID,
-                        //         message_id: callbackQuery.message.message_id,
-                        //         parse_mode: "MarkdownV2",
-                        //         disable_web_page_preview: true,
-                        //         reply_markup: {
-                        //             inline_keyboard: inline
-                        //         }
-                        //     });
-                        //     if (done) {
-                        //         TelegramEngine.#lastStatContent = message;
-                        //     }
-                        // } catch (error) {
-                        //     Log.dev(error);
-                        // }
+                    if (content.startsWith("delete ")) {
+                        let temp = content.split(" ");
+                        let symbol = temp[1];
+                        const deleted = yield pair_1.PairEngine.deletePair(symbol);
+                        _a.bot.answerCallbackQuery(callbackQuery.id, {
+                            text: deleted ? `✅ Deleted ${symbol}` : `❌ Could not delete ${symbol}`,
+                        });
+                        try {
+                            const { message, inline } = _a.pairsMessage();
+                            const done = yield _a.bot.editMessageText(_a.sanitizeMessage(message), {
+                                chat_id: site_1.Site.TG_CHAT_ID,
+                                message_id: (_f = callbackQuery === null || callbackQuery === void 0 ? void 0 : callbackQuery.message) === null || _f === void 0 ? void 0 : _f.message_id,
+                                parse_mode: "MarkdownV2",
+                                disable_web_page_preview: true,
+                                reply_markup: {
+                                    inline_keyboard: inline
+                                }
+                            });
+                        }
+                        catch (error) {
+                            log_1.Log.dev(error);
+                        }
+                    }
+                    else if (content.startsWith("price ")) {
+                        let temp = content.split(" ");
+                        let symbol = temp[1];
+                        const pair = pair_1.PairEngine.getPair(symbol);
+                        const price = pair ? pair.getMarkPrice() : 0;
+                        _a.bot.answerCallbackQuery(callbackQuery.id, {
+                            text: price ? `✅ ${symbol} ${(0, format_number_1.FFF)(price, 6)}` : `❌ Could not get price for ${symbol}`,
+                        });
                     }
                 }
             }
