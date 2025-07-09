@@ -10,6 +10,14 @@ import { AnalysisEngine } from "../engine/analysis";
 
 let LAST_FETCHED_ALL = 0;
 
+let cachedBroadcastEngine: typeof import('./../engine/broadcast').BroadcastEngine | null = null;
+const BroadcastEngine = async () => {
+    if (!cachedBroadcastEngine) {
+        cachedBroadcastEngine = ((await import('./../engine/broadcast'))).BroadcastEngine;
+    }
+    return cachedBroadcastEngine;
+}
+
 export const fetchCSData = (symbol: string, isNew: boolean = true) => new Promise<Res>(async (resolve, reject) => {
     let elapsed = Date.now() - LAST_FETCHED_ALL;
     if (elapsed <= 1000) {
@@ -126,7 +134,7 @@ export class Pair {
             Log.flow([this.symbol, "Candlestick", `Fetched  ${l} row${l == 1 ? '' : 's'}.`], 5);
             const sig = await AnalysisEngine.run(this.symbol, this.candlestickData);
             if(sig){
-                // TODO: Attach broadcast engine here
+                (await BroadcastEngine()).entry(this.symbol, sig);
             }
             conclude();
         }
