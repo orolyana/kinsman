@@ -4,10 +4,11 @@ import { RegexPatterns } from "../lib/regex";
 import { Pair } from "../model/pair";
 import { Site } from "../site";
 import { GRes, Res } from "../lib/res";
+import { WSEngine } from "./ws";
 
 let cachedAnalysisEngine: typeof import('./analysis').AnalysisEngine | null = null;
 const AnalysisEngine = async () => {
-    if(!cachedAnalysisEngine){
+    if (!cachedAnalysisEngine) {
         cachedAnalysisEngine = ((await import('./analysis'))).AnalysisEngine;
     }
     return cachedAnalysisEngine;
@@ -30,18 +31,18 @@ export class PairEngine {
         if (!validR) {
             resolve(false);
         }
-        else{
-            if(!Site.PRODUCTION){
+        else {
+            if (!Site.PRODUCTION) {
                 resolve(true);
             }
-            else{
+            else {
                 const url = `${Site.PE_SOURCE_URL}/${pair}?interval=1m&range=1d`;
                 try {
                     const res = await axios.get(url, {
                         timeout: Site.PE_DATA_TIMEOUT_MS,
                     });
                     const closes = res.data.chart.result[0].indicators.quote[0].close;
-                    const latestClose = closes[closes.length -1];
+                    const latestClose = closes[closes.length - 1];
                     resolve(true);
                 } catch (error) {
                     Log.dev(error);
@@ -60,6 +61,7 @@ export class PairEngine {
                     delete PairEngine.pairs[symbol];
                     Log.flow([PairEngine.slug, "Delete", `${symbol}`, "Successful."], 2);
                     (await AnalysisEngine()).removePair(symbol);
+                    WSEngine.unsubscribe(symbol);
                     resolve(true);
                 }
                 else {
@@ -73,21 +75,28 @@ export class PairEngine {
         })
     };
 
+    static updateMarkPrice = (symbol: string, price: number) => {
+        if (PairEngine.pairs[symbol]) {
+            PairEngine.pairs[symbol].liveMarkPrice = price;
+        }
+    }
+
     static addPair = (symbol: string) => {
         return new Promise<Res>(async (resolve, reject) => {
             Log.flow([PairEngine.slug, "Add", `${symbol}.`], 2);
-            if(PairEngine.pairs[symbol]){
+            if (PairEngine.pairs[symbol]) {
                 Log.flow([PairEngine.slug, "Add", `${symbol}`, "Error", "Pair already exists."], 2);
                 resolve(GRes.err("Pair already exists."));
             }
-            else{
+            else {
                 const valid = await PairEngine.validatePair(symbol);
-                if(valid){
+                if (valid) {
                     Log.flow([PairEngine.slug, "Add", `${symbol}`, "Added successfully."], 2);
                     PairEngine.pairs[symbol] = new Pair(symbol);
+                    WSEngine.subscribe(symbol);
                     resolve(GRes.succ(`${symbol} added to pairs`));
                 }
-                else{
+                else {
                     Log.flow([PairEngine.slug, "Add", `${symbol}`, "Error", "Pair is not valid."], 2);
                     resolve(GRes.err(`${symbol} is not valid.`));
                 }

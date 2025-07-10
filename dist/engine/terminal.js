@@ -16,8 +16,9 @@ const analysis_1 = require("./analysis");
 const groq_1 = require("./groq");
 const pair_1 = require("./pair");
 const telegram_1 = require("./telegram");
+const ws_1 = require("./ws");
 const startEngine = () => new Promise((resolve, reject) => __awaiter(void 0, void 0, void 0, function* () {
-    const loaded = (yield telegram_1.TelegramEngine.start()) && (yield pair_1.PairEngine.start());
+    const loaded = (yield telegram_1.TelegramEngine.start()) && (yield ws_1.WSEngine.start()) && (yield pair_1.PairEngine.start());
     resolve(loaded);
 }));
 exports.startEngine = startEngine;
@@ -27,6 +28,7 @@ const stopEngine = () => new Promise((resolve, reject) => __awaiter(void 0, void
             pair_1.PairEngine.stop(),
             analysis_1.AnalysisEngine.stop(),
             groq_1.GroqEngine.shutdown(),
+            ws_1.WSEngine.stop(),
         ]);
         resolve(ended.every(v => v === true));
     });

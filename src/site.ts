@@ -76,4 +76,7 @@ export class Site {
     static GROQ_HTTP_TIMEOUT_MS: number = parseInt(process.env["GROQ_HTTP_TIMEOUT_MS"] || "0") || 60000;
     static GROQ_USE: boolean = (process.env["GROQ_USE"] || "").toLowerCase() == "true";
     static GROQ_MAX_HISTORY_COUNT: number = parseInt(process.env["GROQ_MAX_HISTORY_COUNT"] || "0") || 5;
+
+    static WS_URL: string = process.env.WS_URL || "wss://streamer.finance.yahoo.com";
+    static WS_RECON_DELYAY_MS: number = parseInt(process.env.WS_RECON_DELYAY_MS || "0") || 5000;
 }

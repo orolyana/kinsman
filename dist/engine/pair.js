@@ -53,6 +53,7 @@ const regex_1 = require("../lib/regex");
 const pair_1 = require("../model/pair");
 const site_1 = require("../site");
 const res_1 = require("../lib/res");
+const ws_1 = require("./ws");
 let cachedAnalysisEngine = null;
 const AnalysisEngine = () => __awaiter(void 0, void 0, void 0, function* () {
     if (!cachedAnalysisEngine) {
@@ -104,6 +105,7 @@ PairEngine.deletePair = (symbol) => {
                 delete _a.pairs[symbol];
                 log_1.Log.flow([_a.slug, "Delete", `${symbol}`, "Successful."], 2);
                 (yield AnalysisEngine()).removePair(symbol);
+                ws_1.WSEngine.unsubscribe(symbol);
                 resolve(true);
             }
             else {
@@ -115,6 +117,11 @@ PairEngine.deletePair = (symbol) => {
             resolve(false);
         }
     }));
+};
+PairEngine.updateMarkPrice = (symbol, price) => {
+    if (_a.pairs[symbol]) {
+        _a.pairs[symbol].liveMarkPrice = price;
+    }
 };
 PairEngine.addPair = (symbol) => {
     return new Promise((resolve, reject) => __awaiter(void 0, void 0, void 0, function* () {
@@ -128,6 +135,7 @@ PairEngine.addPair = (symbol) => {
             if (valid) {
                 log_1.Log.flow([_a.slug, "Add", `${symbol}`, "Added successfully."], 2);
                 _a.pairs[symbol] = new pair_1.Pair(symbol);
+                ws_1.WSEngine.subscribe(symbol);
                 resolve(res_1.GRes.succ(`${symbol} added to pairs`));
             }
             else {

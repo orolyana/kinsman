@@ -121,6 +121,9 @@ const fetchCSData = (symbol, isNew = true) => new Promise((resolve, reject) => _
 exports.fetchCSData = fetchCSData;
 class Pair {
     getMarkPrice() {
+        if (this.liveMarkPrice) {
+            return this.liveMarkPrice;
+        }
         if (this.candlestickData.length <= 0) {
             return 0;
         }
@@ -193,6 +196,7 @@ class Pair {
         this.fullExchangeName = "";
         this.lastFetched = 0;
         this.regularMarketDayHigh = 0;
+        this.liveMarkPrice = 0;
         this.regularMarketDayLow = 0;
         this.regularMarketPrice = 0;
         this.regularMarketVolume = 0;

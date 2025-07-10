@@ -75,3 +75,5 @@ Site.GROQ_MAX_RETRIES = parseInt(process.env["GROQ_MAX_RETRIES"] || "0") || 1;
 Site.GROQ_HTTP_TIMEOUT_MS = parseInt(process.env["GROQ_HTTP_TIMEOUT_MS"] || "0") || 60000;
 Site.GROQ_USE = (process.env["GROQ_USE"] || "").toLowerCase() == "true";
 Site.GROQ_MAX_HISTORY_COUNT = parseInt(process.env["GROQ_MAX_HISTORY_COUNT"] || "0") || 5;
+Site.WS_URL = process.env.WS_URL || "wss://streamer.finance.yahoo.com";
+Site.WS_RECON_DELYAY_MS = parseInt(process.env.WS_RECON_DELYAY_MS || "0") || 5000;
