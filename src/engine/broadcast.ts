@@ -7,6 +7,7 @@ import { Signal } from "../model/signal";
 import { Site } from "../site";
 import { GroqEngine } from "./groq";
 import { GDELTEngine } from "./gdelt";
+import { getForexInsights } from "../lib/get_forex_insight";
 
 let cachedTelegramEngine: typeof import('./telegram').TelegramEngine | null = null;
 const TelegramEngine = async () => {
@@ -48,7 +49,7 @@ export class BroadcastEngine {
     private static aiHistory: Record<string, { ts: number, supported: boolean, confidence: number, long: boolean, price: number }[]> = {};
 
     private static computePrompt = (symbol: string, signal: Signal, occurence: number) => {
-        return new Promise<{ str: string, obj: { supported: boolean, reason: string, confidence: number } } | null>(async (resolve, reject) => {
+        return new Promise<{ str: string, obj: { supported: boolean, reason: string, confidence: number, headlines: string[][] } } | null>(async (resolve, reject) => {
             if (!BroadcastEngine.aiHistory[symbol]) {
                 BroadcastEngine.aiHistory[symbol] = [];
             }
@@ -169,6 +170,10 @@ export class BroadcastEngine {
                                     confidence: confidence,
                                     reason: reason,
                                     supported: supported,
+                                    headlines: [
+                                        baseH.slice(0, 11).map(x => `${getTimeElapsed(x.ts, Date.now())}: ${x.title}\n`),
+                                        quoteH.slice(0, 11).map(x => `${getTimeElapsed(x.ts, Date.now())}: ${x.title}\n`),
+                                    ]
                                 }
                             });
                         } catch (error) {
@@ -203,24 +208,28 @@ export class BroadcastEngine {
         }
 
         const occurence = BroadcastEngine.occurrences[symbol].getCount();
+        const firstOccTS = BroadcastEngine.occurrences[symbol].getTimeSinceFirst();
+        const tpMargin = Math.abs(signal.markPrice - signal.tpsl) * Site.PE_TP_SL_MULTIPLIER;
+        const tpPrice = signal.long ? (signal.markPrice + tpMargin) : (signal.markPrice - tpMargin);
         let m = `📣 *Signal Broadcast*\n\n`;
-        m += `Pair 💲 ${symbol}\n`;
+        m += `Pair 💲 \`${symbol}\`\n`;
         m += `Type 👉 ${signal.long ? "Long" : "Short"}\n`;
         m += `Description 💬 ${signal.description}\n`;
         const volPricePerc = (signal.volatilityPerc / 100) * signal.markPrice;
         const volPrice = signal.long ? (signal.markPrice + volPricePerc) : (signal.markPrice - volPricePerc);
-        m += `Mark Price 🏷️ ${FFF(signal.markPrice, 6)}\n`;
-        m += `ATR Limit Price 🏷️ ${FFF(volPrice, 6)}\n`;
-        m += `Stop Loss Price 🏷️ ${FFF(signal.tpsl, 6)}\n`;
+        m += `Mark Price 🏷️ \`${FFF(signal.markPrice, 6)}\`\n`;
+        m += `ATR Limit Price 🏷️ \`${FFF(volPrice, 6)}\`\n`;
+        m += `SL Price 🏷️ \`${FFF(signal.tpsl, 6)}\`\n`;
+        m += `TP Price x${Site.PE_TP_SL_MULTIPLIER} 🏷️ \`${FFF(tpPrice, 6)}\`\n`;
         m += `Volatility 📈 ${FFF(signal.volatilityPerc)}%\n`;
-        m += `Occurrence 🔄 ${formatNumber(occurence)}\n`;
+        m += `Occurrence 🔄 ${formatNumber(occurence)} \\(${getTimeElapsed(firstOccTS, Date.now())} ago\\)\n`;
         const pair = (await PairEngine()).getPair(symbol);
         if (pair) {
             if (pair.fiftyTwoWeekHigh && pair.fiftyTwoWeekLow) {
-                m += `52 Week ⬆️ ${FFF(pair.fiftyTwoWeekHigh, 6)} ⬇️ ${FFF(pair.fiftyTwoWeekLow, 6)}\n`;
+                m += `52 Week ⬆️ \`${FFF(pair.fiftyTwoWeekHigh, 6)}\` ⬇️ \`${FFF(pair.fiftyTwoWeekLow, 6)}\`\n`;
             }
             if (pair.regularMarketDayHigh && pair.regularMarketDayLow && pair.regularMarketPrice) {
-                m += `Regulars ⏺️ Day ⬆️ ${FFF(pair.regularMarketDayHigh, 6)} | Day ⬇️ ${FFF(pair.regularMarketDayLow, 6)} | 🏷️ ${FFF(pair.regularMarketPrice, 6)} | 📦 ${FFF(pair.regularMarketVolume, 6)}\n`;
+                m += `Regulars ⏺️ Day ⬆️ \`${FFF(pair.regularMarketDayHigh, 6)}\` | Day ⬇️ \`${FFF(pair.regularMarketDayLow, 6)}\` | 🏷️ \`${FFF(pair.regularMarketPrice, 6)}\` | 📦 \`${FFF(pair.regularMarketVolume, 6)}\`\n`;
             }
         }
 
@@ -228,6 +237,56 @@ export class BroadcastEngine {
 
         if (verdict) {
             m += `\n\n🤖 AI Verdict\n\`\`\`\n${verdict.str}\`\`\``;
+
+            m += `\n\n💹 Market Insight\n\`\`\`\n${getForexInsights(symbol)}\`\`\``;
+
+            const TOTAL_MESSAGE_LENGTH = 4090;
+            const LENGTH_LEFT = TOTAL_MESSAGE_LENGTH - m.length;
+            const MAX_LENGTH_HPT = Math.floor((LENGTH_LEFT - 75) / 2);
+            const BASE_HEADLINES = verdict.obj.headlines[0];
+            const QUOTE_HEADLINES = verdict.obj.headlines[1];
+            if (LENGTH_LEFT > 75 && (BASE_HEADLINES.length + QUOTE_HEADLINES.length) > 0) {
+                m += `\n\n📰 Headlines\n\`\`\`\n`
+                // FOR BASE CURRENCY
+                if (BASE_HEADLINES.length > 0) {
+                    let base = symbol.slice(0, 3);
+                    m += `${base}:\n`;
+                    let notFilled: boolean = true;
+                    let indexBase = 0;
+                    let baseAccumulatedLength: number = 0;
+                    while (indexBase < BASE_HEADLINES.length && notFilled) {
+                        let line = BASE_HEADLINES[indexBase];
+                        let potenLength = baseAccumulatedLength + line.length;
+                        if (potenLength >= (MAX_LENGTH_HPT)) {
+                            notFilled = false;
+                        }
+                        else {
+                            m += line;
+                            baseAccumulatedLength += line.length;
+                        }
+                        indexBase++;
+                    }
+                }
+
+                // FOR QUOTE CURRENCY
+                // let LL_AGAIN = TOTAL_MESSAGE_LENGTH - m.length;
+                if (QUOTE_HEADLINES.length > 0) {
+                    let quote = symbol.slice(3, 6);
+                    m += `${quote}:\n`;
+                    let indexQuote = 0;
+                    let notFilled: boolean = true;
+                    while (indexQuote < QUOTE_HEADLINES.length && notFilled) {
+                        let line = QUOTE_HEADLINES[indexQuote];
+                        notFilled = (m.length + line.length) < TOTAL_MESSAGE_LENGTH;
+                        if (notFilled) {
+                            m += line;
+                        }
+                        indexQuote++;
+                    }
+                }
+
+                m += `\`\`\``;
+            }
         }
 
         let inline: TelegramBot.InlineKeyboardButton[][] = [
