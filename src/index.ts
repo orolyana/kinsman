@@ -99,7 +99,6 @@ startEngine().then(r => {
             if (Site.PRODUCTION) {
                 TelegramEngine.sendMessage(`😊 ${Site.TITLE} has worken up at ${getDateTime()}`);
             }
-            // console.log((await fetchCSData("EURUSD=X")).message.candlestick);
         });
     }
     else {
