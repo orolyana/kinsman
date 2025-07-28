@@ -21,6 +21,10 @@
 - **📬 Telegram Broadcast**  
   Sends fully detailed alerts to a Telegram channel, including technical summary, reasoning, sentiment context and summary, and LLM confidence.
 
+<p align="center">
+  <img src="screenshots/1.PNG" width="200" />
+</p>
+
 ---
 
 ## 🧩 Architecture Overview
@@ -53,10 +57,6 @@
 
 6. **Broadcasting**  
    Sends formatted message to Telegram (via bot token + chat ID)
-
-<p align="center">
-  <img src="screenshots/1.PNG" width="200" />
-</p>
 
 ---
 
