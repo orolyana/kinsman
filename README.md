@@ -13,13 +13,13 @@
   Evaluates potential trade entries using indicators including trend direction, momentum, ADX strength, overbought/oversold conditions, candlestick reversals, stop-loss placement, and volatility.
 
 - **📰 Real-Time News Sentiment**  
-  Fetches GDELT currency-related headlines for both base and quote currencies over the last 24 hours, filtered for financial relevance.
+  Fetches GDELT currency-related headlines and article bodies, and returns their summaries, for both base and quote currencies over the last 24 hours, filtered for financial relevance.
 
 - **🤖 LLM-Assisted Validation**  
-  Constructs structured prompts combining technical insights, historical signal history, and sentiment — feeds them to an LLM that returns a JSON verdict (`{ supported, reason, confidence }`).
+  Constructs structured prompts combining technical insights, historical signal history, and sentiment — feeds them to an LLM that returns a JSON verdict (`{ supported, reason, confidence, summary }`).
 
 - **📬 Telegram Broadcast**  
-  Sends fully detailed alerts to a Telegram channel, including technical summary, reasoning, sentiment context, and LLM confidence.
+  Sends fully detailed alerts to a Telegram channel, including technical summary, reasoning, sentiment context and summary, and LLM confidence.
 
 ---
 
@@ -34,7 +34,8 @@
    Builds `signal.cachedPrompt` array for LLM context
 
 3. **Sentiment Extraction**  
-   Parses and filters headlines per currency  
+   Parses and filters headlines per currency
+   Gets the article bodies of passing headlines and summarizes them 
    Groups them by currency for clarity
 
 4. **Prompt Composition**  
@@ -43,15 +44,19 @@
 
    - Indicator summary
    - Signal history
-   - Recent news headlines
+   - Recent news summaries
    - Final task prompt
 
 5. **LLM Judgement & Storage**  
    Queries LLM (via `GroqEngine.request`)  
-   Stores JSON verdict in `BroadcastEngine.aiHistory[symbol]`
+   Stores JSON verdict in `BroadcastEngine.aiHistory[symbol]` for future queries
 
 6. **Broadcasting**  
    Sends formatted message to Telegram (via bot token + chat ID)
+
+<p align="center">
+  <img src="screenshots/1.PNG" width="200" />
+</p>
 
 ---
 
@@ -182,7 +187,7 @@ npm start
 
 - **Backtesting Mode** – Replay historical data + simulate LLM verdicts
 
-- **Sentiment Scoring** – Pre-score headlines (e.g. 🚀 bullish/🔻 bearish)
+- **Sentiment Scoring** – Pre-score headlines/news summaries (e.g. 🚀 bullish/🔻 bearish)
 
 - **Web Dashboard + Webhooks** – For multi-channel alerts (Discord, Slack)
 
