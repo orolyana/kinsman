@@ -39,11 +39,6 @@ app.get("/", async (req, res) => {
     res.send(`${Site.TITLE} is on.`);
 });
 
-app.get("/test", async (req, res) => {
-    // await BroadcastEngine.entry("USDCHF=X", new Signal(false, true, "Test Long", 0.0286, 0.79978, 0.80104, [[]]));
-    res.json(await GDELTEngine.fetch("AUD"));
-});
-
 app.post("/webhook", (req, res) => {
     const receivedToken = req.headers["x-telegram-bot-api-secret-token"];
     if (receivedToken != Site.TG_WH_SECRET_TOKEN) {
