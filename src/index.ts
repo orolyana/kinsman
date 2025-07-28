@@ -11,6 +11,9 @@ import { Log } from './lib/log';
 // import { Server } from 'socket.io';
 import { TelegramEngine } from './engine/telegram';
 import { getDateTime } from './lib/date_time';
+import { BroadcastEngine } from './engine/broadcast';
+import { Signal } from './model/signal';
+import { GDELTEngine } from './engine/gdelt';
 
 const app = express();
 const server = http.createServer(app);
@@ -34,7 +37,12 @@ app.use(
 
 app.get("/", async (req, res) => {
     res.send(`${Site.TITLE} is on.`);
-})
+});
+
+app.get("/test", async (req, res) => {
+    // await BroadcastEngine.entry("USDCHF=X", new Signal(false, true, "Test Long", 0.0286, 0.79978, 0.80104, [[]]));
+    res.json(await GDELTEngine.fetch("AUD"));
+});
 
 app.post("/webhook", (req, res) => {
     const receivedToken = req.headers["x-telegram-bot-api-secret-token"];

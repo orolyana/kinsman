@@ -1,7 +1,9 @@
+import { summarizeBody } from './../lib/summarize_body';
 import axios from "axios";
 import { currencies } from "../data/currencies";
 import { Log } from "../lib/log";
 import { getDateTime, getDateTime2 } from "../lib/date_time";
+import { fetchArticleBody } from "../lib/fetch_article_body";
 function toEpochMs(input: string): number {
     const iso = input.replace(
         /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$/,
@@ -19,7 +21,7 @@ const IRRELEVANT_KEYWORDS = ["travel", "tourism", "weather", "fashion", "culture
 
 
 export class GDELTEngine {
-    static fetch = (cur: string): Promise<{ title: string; ts: number; date: string }[]> => new Promise(async (resolve) => {
+    static fetch = (cur: string): Promise<{ title: string; ts: number; date: string; summary: string }[]> => new Promise(async (resolve) => {
         if (!currencies[cur]) return resolve([]);
 
         const c = currencies[cur];
@@ -35,10 +37,13 @@ export class GDELTEngine {
                 .map((art: any) => ({
                     title: art.title.trim(),
                     ts: toEpochMs(art.seendate),
-                    date: getDateTime2(toEpochMs(art.seendate))
+                    date: getDateTime2(toEpochMs(art.seendate)),
+                    url: art.url,
                 })).
                 filter((x: any) => {
                     const t = x.title.toLowerCase();
+
+                    const url = x.url;
 
                     const matchesCurrency = (
                         t.includes(cur.toLowerCase()) ||
@@ -58,7 +63,20 @@ export class GDELTEngine {
                 })
                 .sort((a: any, b: any) => b.ts - a.ts);
 
-            resolve(articles);
+            const newArt = (await Promise.all(articles.map(async (art: any) => {
+                const body = await fetchArticleBody(art.url);
+                if (body) {
+                    const s = await summarizeBody(body, 4);
+                    if (s && (!(s || "").toLowerCase().includes("error"))) {
+                        let summary: string = `${art.title}.`;
+                        summary += ' ' + s;
+                        art.summary = summary.trim();
+                    }
+                }
+                delete art.url;
+                return art;
+            }))).filter(x => !!x.summary);
+            resolve(newArt);
         } catch (error) {
             Log.dev(error);
             resolve([]);

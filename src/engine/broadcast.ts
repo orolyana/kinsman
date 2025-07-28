@@ -67,8 +67,8 @@ export class BroadcastEngine {
             prompt[0].content += `You are ${Site.TITLE || "Bennie"} AI,  a trading assistant skilled in indicator-based strategy evaluation for Forex Futures.`;
             prompt[0].content += `\n\nGiven structured data and recent signal history, determine if the proposed signal is valid.`;
             prompt[0].content += `\n\nRespond ONLY with a JSON object like:`;
-            prompt[0].content += `\n\n{\n\t"supported": boolean,\n\t"reason": string,\n\t"confidence": number (0 to 100)\n}`;
-            prompt[0].content += `\n\nExample:\n{\n\t"supported": true,\n\t"reason": "ADX confirms strong trend and no reversal signs, supporting the short signal.",\n\t"confidence": 84\n}\n\nNote: Numeric values in parentheses (e.g., 14 or 9/26/52/26) beside indicators represent their parameters when applicable.`;
+            prompt[0].content += `\n\n{\n\t"supported": boolean,\n\t"reason": string,\n\t"confidence": number (0 to 100),\n\t"summary": string (1 paragraph summary verdict of the news summaries provided, combined, strictly less than 500 characters, independent of the signal or other data, with references to your verdict.)\n}`;
+            prompt[0].content += `\n\nExample:\n{\n\t"supported": true,\n\t"reason": "ADX confirms strong trend and no reversal signs, supporting the short signal.",\n\t"confidence": 84,\n\t"summary": "The news suggest AUD is bearish while USD is bullish because... "\n}\n\nNote: Numeric values in parentheses (e.g., 14 or 9/26/52/26) beside indicators represent their parameters when applicable, .`;
 
             prompt[1].content += `# INPUT\n${signal.cachedPrompt[0].join("\n")}`;
 
@@ -133,10 +133,10 @@ export class BroadcastEngine {
                 GDELTEngine.fetch(quote),
             ]);
             if (baseH.length > 0 || quoteH.length > 0) {
-                prompt[1].content += `\n\nRecent News Headlines (last 24h):\n`;
+                prompt[1].content += `\n\nRecent News Summaries (last 24h):\n`;
 
                 if (baseH.length > 0) {
-                    prompt[1].content += `\n[${base}]\n` + baseH.map(h => `- [${h.date}] ${h.title}`).join("\n");
+                    prompt[1].content += `\n[${base}]\n` + baseH.map(h => `- [${h.date}] ${h.summary}`).join("\n");
                 }
 
                 if (quoteH.length > 0) {
@@ -144,7 +144,7 @@ export class BroadcastEngine {
                 }
             }
 
-            prompt[1].content += `\n\n## TASK\nReturn a JSON object only with:\n- supported: true/false\n- reason: short paragraph\n- confidence: 0–100`;
+            prompt[1].content += `\n\n## TASK\nReturn a JSON object only with:\n- supported: true/false\n- reason: short paragraph\n- confidence: 0–100\n- summary: news verdict summary short paragraph`;
 
             prompt[0].content = prompt[0].content.replace(/ {2,}/g, " ");
             prompt[1].content = prompt[1].content.replace(/ {2,}/g, " ");
@@ -157,7 +157,7 @@ export class BroadcastEngine {
                     if (r.succ) {
                         try {
                             r.message = r.message.replace(/^[^{]*/, "").replace(/[^}]*$/, "");
-                            const { supported, reason, confidence } = JSON.parse(r.message);
+                            const { supported, reason, confidence, summary } = JSON.parse(r.message);
                             const row = { ts: Date.now(), supported: supported, confidence: confidence, long: signal.long, price: signal.markPrice };
 
                             BroadcastEngine.aiHistory[symbol].push(row);
@@ -165,15 +165,12 @@ export class BroadcastEngine {
                                 BroadcastEngine.aiHistory[symbol] = BroadcastEngine.aiHistory[symbol].slice(BroadcastEngine.aiHistory[symbol].length - Site.GROQ_MAX_HISTORY_COUNT);
                             }
                             resolve({
-                                str: `Supported: ${supported ? 'Yes' : 'No'}\nReason: ${reason}\nConfidence: ${confidence}`,
+                                str: `SUPPORTED: ${supported ? 'Yes' : 'No'}\nCONFIDENCE: ${confidence}\n\nREASON\n${reason}\n\nNEWS\n${summary}`,
                                 obj: {
                                     confidence: confidence,
                                     reason: reason,
                                     supported: supported,
-                                    headlines: [
-                                        baseH.slice(0, 11).map(x => `${getTimeElapsed(x.ts, Date.now())}: ${x.title}\n`),
-                                        quoteH.slice(0, 11).map(x => `${getTimeElapsed(x.ts, Date.now())}: ${x.title}\n`),
-                                    ]
+                                    headlines: summary,
                                 }
                             });
                         } catch (error) {
@@ -236,57 +233,57 @@ export class BroadcastEngine {
         const verdict = await BroadcastEngine.computePrompt(symbol, signal, occurence);
 
         if (verdict) {
-            m += `\n\n🤖 AI Verdict\n\`\`\`\n${verdict.str}\`\`\``;
+            m += `\n\n🤖 Verdict\n\`\`\`\n${verdict.str}\`\`\``;
 
             m += `\n\n💹 Market Insight\n\`\`\`\n${getForexInsights(symbol)}\`\`\``;
 
-            const TOTAL_MESSAGE_LENGTH = 4090;
-            const LENGTH_LEFT = TOTAL_MESSAGE_LENGTH - m.length;
-            const MAX_LENGTH_HPT = Math.floor((LENGTH_LEFT - 75) / 2);
-            const BASE_HEADLINES = verdict.obj.headlines[0];
-            const QUOTE_HEADLINES = verdict.obj.headlines[1];
-            if (LENGTH_LEFT > 75 && (BASE_HEADLINES.length + QUOTE_HEADLINES.length) > 0) {
-                m += `\n\n📰 Headlines\n\`\`\`\n`
-                // FOR BASE CURRENCY
-                if (BASE_HEADLINES.length > 0) {
-                    let base = symbol.slice(0, 3);
-                    m += `${base}:\n`;
-                    let notFilled: boolean = true;
-                    let indexBase = 0;
-                    let baseAccumulatedLength: number = 0;
-                    while (indexBase < BASE_HEADLINES.length && notFilled) {
-                        let line = BASE_HEADLINES[indexBase];
-                        let potenLength = baseAccumulatedLength + line.length;
-                        if (potenLength >= (MAX_LENGTH_HPT)) {
-                            notFilled = false;
-                        }
-                        else {
-                            m += line;
-                            baseAccumulatedLength += line.length;
-                        }
-                        indexBase++;
-                    }
-                }
+            // const TOTAL_MESSAGE_LENGTH = 4090;
+            // const LENGTH_LEFT = TOTAL_MESSAGE_LENGTH - m.length;
+            // const MAX_LENGTH_HPT = Math.floor((LENGTH_LEFT - 75) / 2);
+            // const BASE_HEADLINES = verdict.obj.headlines[0];
+            // const QUOTE_HEADLINES = verdict.obj.headlines[1];
+            // if (LENGTH_LEFT > 75 && (BASE_HEADLINES.length + QUOTE_HEADLINES.length) > 0) {
+            //     m += `\n\n📰 Headlines\n\`\`\`\n`
+            //     // FOR BASE CURRENCY
+            //     if (BASE_HEADLINES.length > 0) {
+            //         let base = symbol.slice(0, 3);
+            //         m += `${base}:\n`;
+            //         let notFilled: boolean = true;
+            //         let indexBase = 0;
+            //         let baseAccumulatedLength: number = 0;
+            //         while (indexBase < BASE_HEADLINES.length && notFilled) {
+            //             let line = BASE_HEADLINES[indexBase];
+            //             let potenLength = baseAccumulatedLength + line.length;
+            //             if (potenLength >= (MAX_LENGTH_HPT)) {
+            //                 notFilled = false;
+            //             }
+            //             else {
+            //                 m += line;
+            //                 baseAccumulatedLength += line.length;
+            //             }
+            //             indexBase++;
+            //         }
+            //     }
 
-                // FOR QUOTE CURRENCY
-                // let LL_AGAIN = TOTAL_MESSAGE_LENGTH - m.length;
-                if (QUOTE_HEADLINES.length > 0) {
-                    let quote = symbol.slice(3, 6);
-                    m += `${quote}:\n`;
-                    let indexQuote = 0;
-                    let notFilled: boolean = true;
-                    while (indexQuote < QUOTE_HEADLINES.length && notFilled) {
-                        let line = QUOTE_HEADLINES[indexQuote];
-                        notFilled = (m.length + line.length) < TOTAL_MESSAGE_LENGTH;
-                        if (notFilled) {
-                            m += line;
-                        }
-                        indexQuote++;
-                    }
-                }
+            //     // FOR QUOTE CURRENCY
+            //     // let LL_AGAIN = TOTAL_MESSAGE_LENGTH - m.length;
+            //     if (QUOTE_HEADLINES.length > 0) {
+            //         let quote = symbol.slice(3, 6);
+            //         m += `${quote}:\n`;
+            //         let indexQuote = 0;
+            //         let notFilled: boolean = true;
+            //         while (indexQuote < QUOTE_HEADLINES.length && notFilled) {
+            //             let line = QUOTE_HEADLINES[indexQuote];
+            //             notFilled = (m.length + line.length) < TOTAL_MESSAGE_LENGTH;
+            //             if (notFilled) {
+            //                 m += line;
+            //             }
+            //             indexQuote++;
+            //         }
+            //     }
 
-                m += `\`\`\``;
-            }
+            //     m += `\`\`\``;
+            // }
         }
 
         let inline: TelegramBot.InlineKeyboardButton[][] = [
