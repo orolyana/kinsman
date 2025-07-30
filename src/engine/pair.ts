@@ -14,6 +14,14 @@ const AnalysisEngine = async () => {
     return cachedAnalysisEngine;
 }
 
+let cachedSDSI: typeof import('./sdsi').SDSI | null = null;
+const SDSI = async () => {
+    if (!cachedSDSI) {
+        cachedSDSI = ((await import('./sdsi'))).SDSI;
+    }
+    return cachedSDSI;
+}
+
 export class PairEngine {
 
     private static slug = "Pair Engine";
@@ -91,6 +99,7 @@ export class PairEngine {
             else {
                 const valid = await PairEngine.validatePair(symbol);
                 if (valid) {
+                    (await SDSI()).newPairMonitor(symbol);
                     Log.flow([PairEngine.slug, "Add", `${symbol}`, "Added successfully."], 2);
                     PairEngine.pairs[symbol] = new Pair(symbol);
                     WSEngine.subscribe(symbol);

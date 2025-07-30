@@ -17,6 +17,14 @@ const TelegramEngine = async () => {
     return cachedTelegramEngine;
 }
 
+let cachedSDSI: typeof import('./sdsi').SDSI | null = null;
+const SDSI = async () => {
+    if (!cachedSDSI) {
+        cachedSDSI = ((await import('./sdsi'))).SDSI;
+    }
+    return cachedSDSI;
+}
+
 let cachedPairEngine: typeof import('./pair').PairEngine | null = null;
 const PairEngine = async () => {
     if (!cachedPairEngine) {
@@ -188,6 +196,10 @@ export class BroadcastEngine {
 
     static entry = async (symbol: string, signal: Signal) => {
 
+        (await SDSI()).newSignalMonitor(symbol, signal);
+
+        const sdsiOUT = (await SDSI()).getPairAnalysis(symbol);
+
         let TE = await TelegramEngine();
 
         if (!BroadcastEngine.occurrences[symbol]) {
@@ -234,9 +246,6 @@ export class BroadcastEngine {
 
         if (verdict) {
             m += `\n\n🤖 Verdict\n\`\`\`\n${verdict.str}\`\`\``;
-
-            m += `\n\n💹 Market Insight\n\`\`\`\n${getForexInsights(symbol)}\`\`\``;
-
             // const TOTAL_MESSAGE_LENGTH = 4090;
             // const LENGTH_LEFT = TOTAL_MESSAGE_LENGTH - m.length;
             // const MAX_LENGTH_HPT = Math.floor((LENGTH_LEFT - 75) / 2);
@@ -285,6 +294,12 @@ export class BroadcastEngine {
             //     m += `\`\`\``;
             // }
         }
+
+        if (sdsiOUT) {
+            m += `\n\n🔍 SDSI\n\`\`\`\n${sdsiOUT}\`\`\``;
+        }
+
+        m += `\n\n💹 Market Insight\n\`\`\`\n${getForexInsights(symbol)}\`\`\``;
 
         let inline: TelegramBot.InlineKeyboardButton[][] = [
             [
