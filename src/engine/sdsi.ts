@@ -1,6 +1,7 @@
 import { Signal } from './../model/signal';
 import { Relationship, Snapshot } from './../model/sdsi_models';
 import { Site } from '../site';
+import { getDateTime } from '../lib/date_time';
 
 const MAX_HIST_LENGTH: number = Site.IN_CFG.DIR_LEN || 5;
 
@@ -74,20 +75,20 @@ export class SDSI {
     static getPairAnalysis = (symbol: string): string | null => {
         const base = symbol.slice(0, 3);
         const quote = symbol.slice(3, 6);
-    
+
         const b = SDSI.getSnapshot(base);
         const q = SDSI.getSnapshot(quote);
         if (!b || !q) return null;
-    
+
         const fmt = (n: number) => (n >= 0 ? '+' : '') + n.toFixed(2);
-    
+
         const relStr = b.strength - q.strength;
         const relTrd = b.trend - q.trend;
         const relMom = b.momentum - q.momentum;
-    
+
         const desc = (s: Snapshot, tag: string) =>
             `• ${tag}  Str:${fmt(s.strength)}  Trd:${fmt(s.trend)}  Mom:${fmt(s.momentum)}  Vol:${fmt(s.volatility)}`;
-    
+
         let reco = '';
         if (Math.abs(relStr) < 0.1) {
             reco = `⚖️ No clear edge on ${symbol}`;
@@ -100,7 +101,7 @@ export class SDSI {
         } else {
             reco = `↘️ Mild SHORT ${base}`;
         }
-    
+
         return [
             desc(b, base),
             desc(q, quote),
@@ -108,5 +109,43 @@ export class SDSI {
             `🧭 ${reco}`
         ].join('\n');
     };
-    
+
+    static getRankings = (): string => {
+        const snapshots = Object.entries(SDSI.relationship)
+            .map(([currency]) => {
+                const snap = SDSI.getSnapshot(currency);
+                return snap ? { currency, ...snap } : null;
+            })
+            .filter(Boolean) as (Snapshot & { currency: string })[];
+
+        if (snapshots.length === 0) return 'No currencies tracked yet.';
+
+        // Sort by strength descending
+        snapshots.sort((a, b) => b.strength - a.strength);
+
+        const icon = (s: number) => {
+            if (s > 0.5) return '🔥';
+            if (s > 0.2) return '📈';
+            if (s < -0.5) return '🧊';
+            if (s < -0.2) return '📉';
+            return '⚖️';
+        };
+
+        const lines = snapshots.map((snap, i) => {
+            return `${(i + 1).toString().padStart(2)}. ${snap.currency.padEnd(5)} | ` +
+                `${snap.strength.toFixed(2).padStart(5)} ` +
+                `${snap.trend.toFixed(2).padStart(5)} ` +
+                `${snap.momentum.toFixed(2).padStart(5)} ` +
+                `${snap.volatility.toFixed(2).padStart(5)} ` +
+                `${icon(snap.strength)}`;
+        });
+
+        return [
+            '📊 SDSI Currency Rankings - '+getDateTime(),
+            '---------------------------------------',
+            ' #  Code  |  S     T     M     V    ',
+            '---------------------------------------',
+            ...lines
+        ].join('\n');
+    };
 }

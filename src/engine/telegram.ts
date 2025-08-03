@@ -12,7 +12,32 @@ const starting = Date.now();
 
 type CBF = (messageId: string) => void;
 
+let cachedSDSI: typeof import('./sdsi').SDSI | null = null;
+const SDSI = async () => {
+    if (!cachedSDSI) {
+        cachedSDSI = ((await import('./sdsi'))).SDSI;
+    }
+    return cachedSDSI;
+}
+
 export class TelegramEngine {
+
+    private static getRankContent = () => new Promise<{
+        message: string;
+        inline: TelegramBot.InlineKeyboardButton[][];
+    }>(async (resolve, reject) => {
+        let message: string = `\`\`\`\n${(await SDSI()).getRankings()}\`\`\``;
+        let inline: TelegramBot.InlineKeyboardButton[][] = [
+            [
+                {
+                    text: "♻️ Refresh",
+                    callback_data: "refrank",
+                }
+            ]
+        ];
+
+        resolve({ message, inline });
+    });
 
     private static bot: TelegramBot;
 
@@ -92,6 +117,10 @@ export class TelegramEngine {
                     command: "/pairs",
                     description: "Manage Pairs"
                 },
+                {
+                    command: "/rank",
+                    description: "Show Curr Rank"
+                },
             ]);
             if (!Site.TG_POLLING) {
                 TelegramEngine.bot.setWebHook(`${Site.URL}/webhook`, {
@@ -108,6 +137,16 @@ export class TelegramEngine {
                     }
                     else if (/^\/pairs$/.test(content)) {
                         const { inline, message } = TelegramEngine.pairsMessage();
+                        TelegramEngine.sendMessage(message, mid => { }, {
+                            disable_web_page_preview: true,
+                            parse_mode: 'MarkdownV2',
+                            reply_markup: {
+                                inline_keyboard: inline,
+                            }
+                        });
+                    }
+                    else if (/^\/rank$/.test(content)) {
+                        const { inline, message } = await TelegramEngine.getRankContent();
                         TelegramEngine.sendMessage(message, mid => { }, {
                             disable_web_page_preview: true,
                             parse_mode: 'MarkdownV2',
@@ -150,6 +189,23 @@ export class TelegramEngine {
                         try {
                             TelegramEngine.bot.answerCallbackQuery(callbackQuery.id);
                             const { message, inline } = TelegramEngine.pairsMessage();
+                            const done = await TelegramEngine.bot.editMessageText(TelegramEngine.sanitizeMessage(message), {
+                                chat_id: Site.TG_CHAT_ID,
+                                message_id: callbackQuery?.message?.message_id,
+                                parse_mode: "MarkdownV2",
+                                disable_web_page_preview: true,
+                                reply_markup: {
+                                    inline_keyboard: inline
+                                }
+                            });
+                        } catch (error) {
+                            Log.dev(error);
+                        }
+                    }
+                    if (callbackQuery.data == "refrank") {
+                        try {
+                            TelegramEngine.bot.answerCallbackQuery(callbackQuery.id);
+                            const { message, inline } = await TelegramEngine.getRankContent();
                             const done = await TelegramEngine.bot.editMessageText(TelegramEngine.sanitizeMessage(message), {
                                 chat_id: Site.TG_CHAT_ID,
                                 message_id: callbackQuery?.message?.message_id,
