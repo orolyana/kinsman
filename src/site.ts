@@ -23,7 +23,7 @@ export class Site {
     static PE_DATA_TIMEOUT_MS: number = parseInt(process.env["PE_DATA_TIMEOUT_MS"] || "0") || 120000;
     static PE_SOURCE_URL: string = process.env["PE_SOURCE_URL"] || "https://query1.finance.yahoo.com/v8/finance/chart";
     static PE_INITIAL_PAIRS: string[] = (process.env["PE_INITIAL_PAIRS"] || "").split(" ").filter(x => RegexPatterns.pair.test(x));
-    static PE_TP_SL_MULTIPLIER: number = parseInt(process.env["PE_TP_SL_MULTIPLIER"] || "0") || 1;
+    static PE_TP_SL_MULTIPLIER: number = parseFloat(process.env["PE_TP_SL_MULTIPLIER"] || "0") || 1;
 
     static TG_TOKEN: string = process.env["TG_TOKEN"] ?? "";
     static TG_CHAT_ID: number = parseInt(process.env["TG_CHAT_ID"] ?? "0") || 0;
