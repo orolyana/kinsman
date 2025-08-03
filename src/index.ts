@@ -97,7 +97,7 @@ startEngine().then(r => {
             Log.flow([Site.TITLE, 'Sucessfully started all engines.'], 0);
             Log.flow([Site.TITLE, `Running at http://127.0.0.1:${Site.PORT}`], 0);
             if (Site.PRODUCTION) {
-                TelegramEngine.sendMessage(`😊 ${Site.TITLE} has worken up at ${getDateTime()}`);
+                TelegramEngine.sendMessage(`😊 ${Site.TITLE} has woken up at ${getDateTime()}`);
             }
         });
     }
